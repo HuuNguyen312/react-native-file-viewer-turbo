@@ -1,10 +1,12 @@
 package com.fileviewerturbo;
 
 import android.app.Activity;
+import android.content.ClipData;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.webkit.MimeTypeMap;
+import android.util.Log;
 
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.BaseActivityEventListener;
@@ -37,6 +39,30 @@ public class FileViewerTurboModuleImpl {
     mContext.addActivityEventListener(mActivityEventListener);
   }
 
+  public static String getFileExtension(String filePath) {
+    if (filePath == null || filePath.isEmpty()) {
+      return "";
+    }
+
+    // Tìm vị trí của dấu chấm cuối cùng
+    int lastDotIndex = filePath.lastIndexOf('.');
+
+    // Tìm vị trí của dấu phân cách thư mục cuối cùng
+    // Cần kiểm tra cả "/" (Linux/macOS) và "\" (Windows)
+    int lastSeparatorIndex = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
+
+    // 1. Kiểm tra nếu không có dấu chấm nào được tìm thấy.
+    // 2. Hoặc dấu chấm nằm trước dấu phân cách thư mục cuối cùng (ví dụ: /folder.name/file)
+    // 3. Hoặc dấu chấm là ký tự đầu tiên của chuỗi (ví dụ: .gitignore)
+    if (lastDotIndex == -1 || lastDotIndex < lastSeparatorIndex || lastDotIndex == 0) {
+      return "";
+    }
+
+    // Lấy chuỗi con sau dấu chấm
+    // Cần sử dụng lastDotIndex + 1 để bỏ qua dấu chấm
+    return filePath.substring(lastDotIndex + 1);
+  }
+
   public void open(String path, ReadableMap options, Promise promise) {
     Uri contentUri = null;
     boolean showOpenWithDialog = options.hasKey(SHOW_OPEN_WITH_DIALOG) && options.getBoolean(SHOW_OPEN_WITH_DIALOG);
@@ -46,7 +72,6 @@ public class FileViewerTurboModuleImpl {
       contentUri = Uri.parse(path);
     } else {
       File newFile = new File(path);
-
       if(mContext.getCurrentActivity() == null) {
         promise.reject("FileViewerTurbo:open", "Activity doesn't exist");
         return;
@@ -62,12 +87,12 @@ public class FileViewerTurboModuleImpl {
       }
     }
 
-    if(contentUri == null) {
+    if(contentUri == null)   {
       promise.reject("FileViewerTurbo:open", "Invalid file");
       return;
     }
 
-    String extension = MimeTypeMap.getFileExtensionFromUrl(path).toLowerCase();
+    String extension = getFileExtension(path).toLowerCase();
     String mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
 
     Intent shareIntent = new Intent();
